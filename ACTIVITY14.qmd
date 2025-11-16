@@ -1,0 +1,381 @@
+---
+title: "ACTIVITY14"
+author: "Rishita Shukla"
+date: "November 14, 2025"
+format:
+  pdf:
+    include-in-header: |
+      \usepackage{ragged2e}
+    include-after-body: |
+      \justifying
+editor: visual
+execute:
+  echo: false
+  warning: false
+  message: false
+  appendix: true
+---
+
+# **Armed Forces Data Wrangling Redux (Activities #08 and #10)**
+
+```{r, label="wrangling", echo=FALSE}
+# STEP 1: Load tidyverse
+library(tidyverse)
+
+# STEP 2: Load the data
+activity_08_data <- read_csv("https://docs.google.com/spreadsheets/d/1cn4i0-ymB1ZytWXCwsJiq6fZ9PhGLUvbMBHlzqG4bwo/export?format=csv")
+
+# STEP 3: Use pivot_longer() to remove extra columns 
+activity_08_tidy_data <- activity_08_data %>%
+  pivot_longer(
+    cols = -1,               
+    names_to = "PayGrade",   
+    values_to = "Count"     
+  )
+
+# STEP 4: Rename columns 
+first_col_name <- names(activity_08_data)[1]
+
+group_df <- activity_08_tidy_data %>%
+  rename(
+    ServiceBranch = all_of(first_col_name), 
+    Soldiers = Count
+  ) %>%
+  
+  mutate(
+    Soldiers = as.numeric(gsub(",", "", Soldiers)) 
+  ) %>%
+  filter(!is.na(Soldiers))
+
+# STEP 5: Create Pay Gradetable from the given data
+paygrade_rank <- tibble(
+  PayGrade = c("E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8", "E9",
+               "W1", "W2", "W3", "W4", "W5",
+               "O1", "O2", "O3", "O4", "O5", "O6", "O7", "O8", "O9", "O10"),
+  RankCategory = c(rep("Enlisted", 9), rep("Warrant Officer", 5), rep("Commissioned Officer", 10))
+)
+
+# Join Armed Forces data with Pay Grade data
+group_df <- group_df %>%
+  left_join(paygrade_rank, by = "PayGrade")
+
+# STEP 6: Use uncount to create individual soldier records
+individual_df <- group_df %>%
+  uncount(weights = Soldiers)
+```
+
+```{r, label="tables", echo=FALSE}
+#STEP 1: Load necessary packages
+library(tidyverse)
+library(janitor) 
+library(knitr)
+library(kableExtra)
+
+
+#STEP 2: Create group absolute frequency table
+group_abs <- group_df %>%
+  group_by(ServiceBranch, PayGrade) %>%
+  summarise(Soldiers = sum(Soldiers), .groups = "drop") %>%
+  pivot_wider(names_from = PayGrade, values_from = Soldiers, values_fill = 0) %>%
+  adorn_totals(where = c("row", "col"))
+
+
+#STEP 3: Make wellformatted table
+kable(group_abs, caption = "Group Absolute Frequency Table") %>%
+  kable_styling(full_width = FALSE, position = "center", bootstrap_options = c("striped", "hover"))
+
+
+#STEP 4: Create group relative frequency table 
+total_soldiers <- sum(group_df$Soldiers)
+group_rel <- group_df %>%
+  group_by(ServiceBranch, PayGrade) %>%
+  summarise(Soldiers = sum(Soldiers), .groups = "drop") %>%
+  mutate(RelFreq = Soldiers / total_soldiers * 100) %>%   # convert to %
+  select(-Soldiers) %>%
+  pivot_wider(names_from = PayGrade, values_from = RelFreq, values_fill = 0) %>%
+  adorn_totals(where = c("row", "col"))
+
+
+#STEP 5: Make well formatted table 
+kable(group_rel, digits = 2, caption = "Group Relative Frequency Table") %>%
+  kable_styling(full_width = FALSE, position = "center", bootstrap_options = c("striped", "hover"))
+
+
+#STEP 6: Create individual absolute frequency table
+individual_abs <- individual_df %>%
+  count(ServiceBranch, PayGrade) %>%
+  pivot_wider(names_from = PayGrade, values_from = n, values_fill = 0) %>%
+  adorn_totals(where = c("row", "col"))
+
+
+#STEP 7: Make well formatted table 
+kable(individual_abs, caption = "Individual Absolute Frequency Table") %>%
+  kable_styling(full_width = FALSE, position = "center", bootstrap_options = c("striped", "hover"))
+
+
+#STEP 8: Create individual relative frequency table
+total_individuals <- nrow(individual_df)
+individual_rel <- individual_df %>%
+  count(ServiceBranch, PayGrade) %>%
+  mutate(RelFreq = n / total_individuals * 100) %>%
+  select(-n) %>%
+  pivot_wider(names_from = PayGrade, values_from = RelFreq, values_fill = 0) %>%
+  adorn_totals(where = c("row", "col"))
+
+#STEP 9: Make well formatted table 
+kable(individual_rel, digits = 2, caption = "Individual Relative Frequency Table") %>%
+  kable_styling(full_width = FALSE, position = "center", bootstrap_options = c("striped", "hover"))
+```
+
+# **Popularity of Baby Names** **(Activity #13)**
+
+```{r, label="name plot", echo=FALSE}
+#STEP 1: Load necessary packages
+library(dcData)
+library(tidyverse)
+library(ggplot2)
+
+#STEP 2: Load dataset
+data(BabyNames)
+
+#STEP 3: Select names 
+selected_names <- c("Cora", "Pearl", "Zoe", "Floy") #Replace names 
+
+#STEP 4: Wrangle data
+tidy_data <- BabyNames %>%
+  filter(name %in% selected_names) %>% 
+  
+#STEP 5: Group by year, name, sex
+  group_by(year, name, sex) 
+
+#STEP 6: Create line plot
+ggplot(tidy_data, aes(x = year, y = count, color = name, linetype = name)) + #Use color and line type for each name
+  geom_line() +
+  geom_point() +
+  labs(
+    title = "Popularity of Selected Names Over Time",
+    x = "Year",
+    y = "Total Number of Babies with Name",
+    color = "Name",
+    linetype = "Name"
+  ) +
+  theme(
+    plot.title = element_text(face = "bold")
+  )
+```
+
+### I chose the names Cora, Floy, Pearl, and Zoe since their popularity patterns differ and its easy to observe trends in the data visualization.
+
+# **Plotting a Mathematical Function (Activity #04)**
+
+```{r, label="math plot", echo=FALSE}
+# Box Problem
+#Finds volume of an open top box made from a rectangular sheet and then uses it to find the length of the cutout that gives the maximum volume.
+library(ggplot2)
+
+#STEP 1: Define dimensions of the rectangular sheet. 
+L <- 36 # numeric length of sheet
+W <- 48 #numeric width of sheet 
+
+#STEP 2: Define volume function using the size of the cutout x
+volume_box <- function(x){x * (L-2*x) * (W-2*x)}
+
+#STEP 3: Define range 
+x_min <- 0
+x_max <- min(L/2, W/2) 
+
+# STEP 4: Create plot 
+ggplot(data = data.frame(x = c(x_min, x_max)), aes(x = x)) +
+  stat_function(fun = volume_box, color = "pink", size = 1.2) +
+  labs(
+    title = "Volume of the box with respect to the side length of the cut out",
+    x = "Cutout size (x)",
+    y = "Volume of the box"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    axis.title = element_text(face = "bold")
+  )
+```
+
+# **Reflection**
+
+### Throughout the semester, I've gained an excellent skill-set including:
+
+1.  Creating functions in R -I learned how to use R to define variables and create functions that perform certain actions using those variables.
+2.  Data Wrangling - I learned how to use R to tidy any form of data into a clean and easy to understand form, which I can then use in various projects.
+3.  Data visualizations - I learned how to use packages in R to create visualizations such as tables, graphs, plots, etc. and then make various statistical inferences.
+4.  Quarto - I learned how to use R and Quarto to create QMD files.
+
+# Code Appendix
+
+```{r, echo=TRUE, eval=FALSE}
+#DATA WRANGLING - US ARMED FORCES DATA 
+# STEP 1: Load tidyverse
+library(tidyverse)
+
+# STEP 2: Load the data
+activity_08_data <- read_csv("https://docs.google.com/spreadsheets/d/1cn4i0-ymB1ZytWXCwsJiq6fZ9PhGLUvbMBHlzqG4bwo/export?format=csv")
+
+# STEP 3: Use pivot_longer() to remove extra columns 
+activity_08_tidy_data <- activity_08_data %>%
+  pivot_longer(
+    cols = -1,               
+    names_to = "PayGrade",   
+    values_to = "Count"     
+  )
+
+# STEP 4: Rename columns 
+first_col_name <- names(activity_08_data)[1]
+
+group_df <- activity_08_tidy_data %>%
+  rename(
+    ServiceBranch = all_of(first_col_name), 
+    Soldiers = Count
+  ) %>%
+  
+  mutate(
+    Soldiers = as.numeric(gsub(",", "", Soldiers)) 
+  ) %>%
+  filter(!is.na(Soldiers))
+
+# STEP 5: Create Pay Gradetable from the given data
+paygrade_rank <- tibble(
+  PayGrade = c("E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8", "E9",
+               "W1", "W2", "W3", "W4", "W5",
+               "O1", "O2", "O3", "O4", "O5", "O6", "O7", "O8", "O9", "O10"),
+  RankCategory = c(rep("Enlisted", 9), rep("Warrant Officer", 5), rep("Commissioned Officer", 10))
+)
+
+# Join Armed Forces data with Pay Grade data
+group_df <- group_df %>%
+  left_join(paygrade_rank, by = "PayGrade")
+
+# STEP 6: Use uncount to create individual soldier records
+individual_df <- group_df %>%
+  uncount(weights = Soldiers)
+#FREQUENCY TABLES
+#STEP 1: Load necessary packages
+library(tidyverse)
+library(janitor) 
+library(knitr)
+library(kableExtra)
+
+
+#STEP 2: Create group absolute frequency table
+group_abs <- group_df %>%
+  group_by(ServiceBranch, PayGrade) %>%
+  summarise(Soldiers = sum(Soldiers), .groups = "drop") %>%
+  pivot_wider(names_from = PayGrade, values_from = Soldiers, values_fill = 0) %>%
+  adorn_totals(where = c("row", "col"))
+
+
+#STEP 3: Make wellformatted table
+kable(group_abs, caption = "Group Absolute Frequency Table") %>%
+  kable_styling(full_width = FALSE, position = "center", bootstrap_options = c("striped", "hover"))
+
+
+#STEP 4: Create group relative frequency table 
+total_soldiers <- sum(group_df$Soldiers)
+group_rel <- group_df %>%
+  group_by(ServiceBranch, PayGrade) %>%
+  summarise(Soldiers = sum(Soldiers), .groups = "drop") %>%
+  mutate(RelFreq = Soldiers / total_soldiers * 100) %>%   # convert to %
+  select(-Soldiers) %>%
+  pivot_wider(names_from = PayGrade, values_from = RelFreq, values_fill = 0) %>%
+  adorn_totals(where = c("row", "col"))
+
+
+#STEP 5: Make well formatted table 
+kable(group_rel, digits = 2, caption = "Group Relative Frequency Table") %>%
+  kable_styling(full_width = FALSE, position = "center", bootstrap_options = c("striped", "hover"))
+
+
+#STEP 6: Create individual absolute frequency table
+individual_abs <- individual_df %>%
+  count(ServiceBranch, PayGrade) %>%
+  pivot_wider(names_from = PayGrade, values_from = n, values_fill = 0) %>%
+  adorn_totals(where = c("row", "col"))
+
+
+#STEP 7: Make well formatted table 
+kable(individual_abs, caption = "Individual Absolute Frequency Table") %>%
+  kable_styling(full_width = FALSE, position = "center", bootstrap_options = c("striped", "hover"))
+
+
+#STEP 8: Create individual relative frequency table
+total_individuals <- nrow(individual_df)
+individual_rel <- individual_df %>%
+  count(ServiceBranch, PayGrade) %>%
+  mutate(RelFreq = n / total_individuals * 100) %>%
+  select(-n) %>%
+  pivot_wider(names_from = PayGrade, values_from = RelFreq, values_fill = 0) %>%
+  adorn_totals(where = c("row", "col"))
+
+#STEP 9: Make well formatted table 
+kable(individual_rel, digits = 2, caption = "Individual Relative Frequency Table") %>%
+  kable_styling(full_width = FALSE, position = "center", bootstrap_options = c("striped", "hover"))
+#POPULARITY OF BABY NAMES
+#STEP 1: Load necessary packages
+library(dcData)
+library(tidyverse)
+library(ggplot2)
+
+#STEP 2: Load dataset
+data(BabyNames)
+
+#STEP 3: Select names 
+selected_names <- c("Cora", "Pearl", "Zoe", "Floy") #Replace names 
+
+#STEP 4: Wrangle data
+tidy_data <- BabyNames %>%
+  filter(name %in% selected_names) %>% 
+  
+#STEP 5: Group by year, name, sex
+  group_by(year, name, sex) 
+
+#STEP 6: Create line plot
+ggplot(tidy_data, aes(x = year, y = count, color = name, linetype = name)) + #Use color and line type for each name
+  geom_line() +
+  geom_point() +
+  labs(
+    title = "Popularity of Selected Names Over Time",
+    x = "Year",
+    y = "Total Number of Babies with Name",
+    color = "Name",
+    linetype = "Name"
+  ) +
+  theme(
+    plot.title = element_text(face = "bold")
+  )
+#PLOTTING OF MATHEMATICAL FUNCTION 
+# Box Problem
+#Finds volume of an open top box made from a rectangular sheet and then uses it to find the length of the cutout that gives the maximum volume.
+library(ggplot2)
+
+#STEP 1: Define dimensions of the rectangular sheet. 
+L <- 36 # numeric length of sheet
+W <- 48 #numeric width of sheet 
+
+#STEP 2: Define volume function using the size of the cutout x
+volume_box <- function(x){x * (L-2*x) * (W-2*x)}
+
+#STEP 3: Define range 
+x_min <- 0
+x_max <- min(L/2, W/2) 
+
+# STEP 4: Create plot 
+ggplot(data = data.frame(x = c(x_min, x_max)), aes(x = x)) +
+  stat_function(fun = volume_box, color = "pink", size = 1.2) +
+  labs(
+    title = "Volume of the box with respect to the side length of the cut out",
+    x = "Cutout size (x)",
+    y = "Volume of the box"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    axis.title = element_text(face = "bold")
+  )
+```
