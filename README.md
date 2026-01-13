@@ -1,4 +1,4 @@
-# ACTIVITY-14
+# Exploratory Data Analysis
 
 This repository consists of all files related to Activity  14 including the QMD file and the PDF of Activity 14. This activity focuses on using R to wrangle data, create well-formatted visualizations and make statistical inferences based on them. 
 
